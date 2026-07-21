@@ -1,0 +1,172 @@
+\chapter{Conclusions}
+\label{ch:conclusions}
+
+\section{Summary}
+\label{sec:summary}
+
+This thesis set out to answer a practical engineering question: what is
+the smallest, most maintainable offline-first architecture sufficient for
+a CRUD-style field-reporting mobile application, and what trade-offs does
+that architecture force a developer to make explicit? Using a campus
+facility-maintenance reporting scenario (CampusFix) as a concrete
+instance of the broader field-data-collection problem
+(\cref{ch:introduction}), the thesis:
+
+\begin{itemize}
+  \item derived a requirements set (\cref{ch:requirements}) that
+  separates ordinary functional requirements from eight offline-specific
+  requirements (OFR-1--OFR-8) covering local-first writes, offline session
+  continuity, deterministic local identity, explicit sync state,
+  connectivity-triggered synchronization, resumability, conflict
+  resolution, and no-data-loss-on-failure;
+  \item designed a four-layer architecture (\cref{ch:design}) in which the
+  presentation layer depends only on a local Room/SQLite database, with a
+  dedicated synchronization layer bridging that database to a Firebase
+  Firestore backend, and a whole-record last-write-wins conflict policy
+  chosen for its simplicity and adequacy for single-owner records;
+  \item implemented that architecture (\cref{ch:implementation}) as a
+  Kotlin Multiplatform application sharing 82.6\% of its Kotlin source
+  (2{,}326 of 2{,}817 lines) between Android and iOS, with
+  platform-specific code confined to connectivity monitoring and thin
+  entry-point glue; and
+  \item evaluated the resulting system (\cref{ch:evaluation}) against six
+  scenarios -- offline creation, delayed sync, failed sync, large sync
+  queues, conflicting edits, and end-user usability -- deriving several
+  conclusions directly from the shape of the implemented algorithm rather
+  than only from measurement, including a precise, code-traced account of
+  how the system currently behaves under the conflicting-edit scenario.
+\end{itemize}
+
+The overall finding is that a relatively small, well-isolated
+synchronization module -- in this implementation, a single
+\texttt{SyncManager} class of under 100 lines plus a platform-abstracted
+\texttt{ConnectivityObserver} -- is sufficient to make a CRUD-style field
+reporting application fully usable offline, provided the architectural
+discipline of \cref{sec:architecture-overview} (UI depends only on local
+storage, never on the network) is maintained throughout. Getting the
+\emph{local-first} half of offline-first right is, in this experience,
+largely a matter of architectural discipline rather than algorithmic
+difficulty; getting the \emph{synchronization} half right -- specifically,
+bidirectional conflict resolution -- is where genuine algorithmic and
+engineering effort remains, as discussed next.
+
+\section{Limitations}
+\label{sec:limitations}
+
+The following limitations of the current system should be read alongside
+its contributions.
+
+\begin{enumerate}
+  \item \textbf{Synchronization is one-directional (push-only).} As
+  established in \cref{sec:conflict-design} and demonstrated by tracing
+  the code in \cref{sec:conflict-eval}, \texttt{SyncManager} uploads local
+  changes to Firestore but never reads the current remote document before
+  overwriting it, and never pulls remote-only changes down to the device.
+  The designed bidirectional last-write-wins policy (OFR-7) is therefore
+  only partially realized. This is the single most consequential
+  limitation identified in this thesis.
+  \item \textbf{No explicit \texttt{FAILED} transition on upload error.}
+  \cref{fig:sync-state-machine} reserves a \texttt{FAILED} status for a
+  report whose upload has been attempted and rejected, but the current
+  \texttt{uploadPending} implementation (\cref{lst:syncmanager}) simply
+  leaves a report in its prior state (\texttt{PENDING}) on exception
+  rather than explicitly marking it \texttt{FAILED}; the user therefore
+  cannot currently distinguish "not yet attempted" from "attempted and
+  failed" purely from the status shown in the UI.
+  \item \textbf{Sequential, unbatched uploads.} \cref{sec:eval-large-queue}
+  identifies that sync time scales linearly with queue size because
+  reports are uploaded one at a time in a single coroutine, with no
+  batching or parallelism.
+  \item \textbf{No server-side authorization.} \cref{sec:constraints}
+  notes that the \texttt{owner} field is a client-set, trusted value used
+  for filtering, not enforced by Firestore security rules in the current
+  implementation; a malicious or buggy client could, in principle, read or
+  write another user's reports.
+  \item \textbf{Photo synchronization is designed but not fully wired.}
+  The schema (\cref{tab:report-fields}) reserves a
+  \texttt{remote\_photo\_url} field for a Firebase Storage upload (FR-13),
+  but the evaluated \texttt{SyncManager} implementation
+  (\cref{lst:syncmanager}) only synchronizes the report's structured
+  fields, not the photo binary itself.
+  \item \textbf{No periodic background sync.} As discussed in
+  \cref{sec:sync-triggers}, synchronization is triggered by connectivity
+  changes, app start, and manual action, but not by a periodic background
+  job, so a device that regains connectivity while the app is fully
+  backgrounded/terminated will not synchronize until the app is next
+  opened.
+\end{enumerate}
+
+\section{Future Work}
+\label{sec:future-work}
+
+Ordered roughly by priority, given the limitations above:
+
+\begin{enumerate}[label=\textbf{F\arabic*.}]
+  \item \textbf{Bidirectional synchronization with real last-write-wins.}
+  Extend \texttt{SyncManager} to, before every \texttt{set()}, read the
+  current remote document and compare its \texttt{updatedAt} against the
+  local report's \texttt{updatedAt}, keeping whichever is newer; and add a
+  pull path (either a one-shot \texttt{get()} per sync or a Firestore
+  snapshot listener) so that remote-only changes (e.g. a report edited
+  through a hypothetical facilities-management back office) reach the
+  device. A Firestore transaction, rather than a plain read-then-write,
+  would additionally close the small race window between the read and the
+  write.
+  \item \textbf{Explicit \texttt{FAILED} status on upload error.} A
+  small, low-risk change to \texttt{uploadPending}'s \texttt{catch} block
+  to call \texttt{dao.update(report.copy(syncStatus = SyncStatus.FAILED))},
+  closing limitation 2 above and making the "failed sync" scenario of
+  \cref{sec:eval-failed-sync} fully observable from the UI.
+  \item \textbf{Batched/parallel uploads.} Replace the sequential
+  \texttt{for} loop in \texttt{uploadPending} with either a bounded-
+  concurrency \texttt{coroutineScope} that uploads several reports at
+  once, or Firestore's native batched-write API, to flatten the linear
+  scaling observed in \cref{sec:eval-large-queue}.
+  \item \textbf{Firestore security rules keyed on Firebase Auth UID.}
+  Replace the trusted, client-set \texttt{owner} email field with
+  server-enforced rules that only allow a document's true creator (by
+  Firebase Auth UID) to write it, closing limitation 4.
+  \item \textbf{Complete photo synchronization.} Wire the existing
+  \texttt{remotePhotoUrl} field to an actual Firebase Storage upload,
+  triggered alongside the report's own document sync.
+  \item \textbf{Periodic background sync.} Add a platform background task
+  (\texttt{WorkManager} periodic work on Android; a
+  \texttt{BGAppRefreshTask} on iOS) as a fourth synchronization trigger,
+  for the case where connectivity returns while the app is not in the
+  foreground.
+  \item \textbf{Field-level conflict resolution.} Once bidirectional sync
+  (F1) is in place, investigate whether whole-record LWW's
+  data-loss failure mode (\cref{fig:conflict-scenario}) is frequent enough
+  in real usage to justify the added complexity of field-level merge or a
+  CRDT-based representation~\cite{shapiro2011crdt}.
+  \item \textbf{Automated tests for the synchronization module.} The
+  evaluation in \cref{ch:evaluation} is manual/scenario-based; an
+  automated test suite exercising \texttt{SyncManager} against a Firestore
+  emulator (including the large-queue and conflict scenarios) would let
+  these properties be checked on every code change rather than only during
+  a dedicated evaluation pass.
+  \item \textbf{Repeat the evaluation of \cref{ch:evaluation} with real
+  measurements}, replacing every table and figure marked
+  "illustrative" with data from actual test runs, and re-examining the
+  discussion in \cref{sec:eval-discussion} against those numbers.
+\end{enumerate}
+
+\section{Final Remarks}
+\label{sec:final-remarks}
+
+Offline-first design is often presented, in industry writing, as either a
+trivial addition of "a local cache" or as an unavoidably hard problem
+requiring CRDTs and vector clocks. The experience of building CampusFix
+suggests the practical reality, at least for CRUD-style field-reporting
+applications, sits between those two extremes: making an application
+\emph{fully usable offline} is genuinely tractable with a disciplined
+layered architecture, a local database as the single source of truth, and
+a connectivity-aware sync module -- the kind of code shown in
+\cref{ch:implementation} is neither exotic nor large. Making
+synchronization \emph{fully correct} under concurrent, disconnected edits
+is the part that remains hard, and where this thesis's honest account of
+its own implementation gap (\cref{sec:conflict-eval}) is, perhaps, its
+most useful methodological contribution: a working offline-first
+application and a \emph{correctly conflict-free} offline-first
+application are not the same claim, and a thesis -- like a codebase --
+should be explicit about which one it is making.

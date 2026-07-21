@@ -1,0 +1,90 @@
+# ============================================
+# Gradle / Kotlin Multiplatform
+# ============================================
+.gradle/
+build/
+**/build/
+.kotlin/
+local.properties
+!gradle/wrapper/gradle-wrapper.jar
+
+# ============================================
+# Android
+# ============================================
+*.apk
+*.aab
+*.ap_
+*.dex
+captures/
+.externalNativeBuild/
+.cxx/
+release/
+
+# ============================================
+# iOS / Xcode / CocoaPods
+# ============================================
+iosApp/Pods/
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ============================================
+# IDE
+# ============================================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ============================================
+# Secrets / machine-specific
+# ============================================
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore
+keystore.properties
+*.p12
+*.p8
+*.mobileprovision
+.env
+
+# ============================================
+# LaTeX (thesis-latex/)
+# ============================================
+*.aux
+*.lof
+*.log
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.synctex.gz
+*.fdb_latexmk
+*.nav
+*.snm
+*.vrb
+
+# ============================================
+# macOS
+# ============================================
+.DS_Store
+__MACOSX/
+
+# Presentations
+*.pptx
+*.ppt

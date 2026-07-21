@@ -1,0 +1,45 @@
+% ============================================================================
+%  Front-page metadata for the toptesi \frontespizio command.
+%  These are the standard PoliTo toptesi frontpage macros. Edit the bracketed
+%  values before submission.
+% ============================================================================
+
+\english   % Title page and headings in English. Comment out for Italian.
+
+\ateneo{Politecnico di Torino}
+%\nomeateneo{Sede Centrale}
+
+\titolo{Design and Development of an Offline-First Mobile Application for Field Data Collection}
+%\sottotitolo{The CampusFix maintenance-reporting case study}
+
+\corsodilaurea{Computer Engineering}
+
+\candidato{Masoud \textsc{Karimi}}
+
+\relatore{Prof.\ [Supervisor Name]}
+%\secondorelatore{Prof.\ [Co-supervisor Name]}
+%\tutoreaziendale{Dr.\ [Company Tutor]}
+
+% \sedutadilaurea may be called twice: academic year, then session month.
+\sedutadilaurea{\textsc{Academic~year} 2025-2026}
+\sedutadilaurea{\textsc{[Defense Month]} 2026}
+
+% The official PoliTo logo. The Overleaf PoliTo template ships a `logopolito`
+% image; add that file to the project and uncomment the next line to show it.
+% Without it, \frontespizio still produces a valid (logo-less) title page.
+%\logosede{logopolito}
+
+% ---- English strings for the title page (toptesi conditional block) --------
+\iflanguage{english}{%
+  \CorsoDiLaureaIn{Master of Science in\space}
+  \TesiDiLaurea{Master's Thesis}
+  \InName{in}
+  \CandidateName{Candidate}
+  \AdvisorName{Supervisor}
+  \TutorName{Tutor}
+  \NomeTutoreAziendale{Company Tutor}
+  \NomePrimoTomo{First volume}
+  \NomeSecondoTomo{Second Volume}
+  \NomeTerzoTomo{Third Volume}
+  \NomeQuartoTomo{Fourth Volume}
+}{}

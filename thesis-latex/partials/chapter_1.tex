@@ -1,0 +1,272 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+\section{Motivation}
+\label{sec:motivation}
+
+Mobile software is increasingly assumed to be "always connected." Modern
+frameworks, backend-as-a-service platforms, and UI toolkits are built around
+the request/response cycle: an action in the interface triggers a network
+call, and the interface waits for -- or reacts to -- the server's answer.
+This assumption is reasonable for a large class of consumer applications
+used indoors, in urban areas, on stable Wi-Fi or 4G/5G connections. It is a
+poor assumption for the growing class of applications used \emph{in the
+field}: on construction sites, in warehouses and basements, in rural areas,
+during disaster response, in agriculture, and -- the scenario adopted in
+this thesis -- by facility-maintenance staff and building occupants moving
+through a large university campus.
+
+In all of these environments, connectivity is not binary. It is
+intermittent (available in some rooms, absent in others), variable in
+quality (a slow, high-latency link that behaves worse than no link at all
+for a synchronous request), and sometimes simply unavailable for extended
+periods (elevators, basements, remote buildings, network outages). An
+application that treats the network as always present will, in these
+conditions, either block the user interface while waiting for a server that
+cannot be reached, silently drop user input, or crash outright. None of
+these outcomes are acceptable for an application whose entire purpose is to
+let a user \emph{capture something at the moment it happens} -- a broken
+projector noticed while walking past a lecture hall, a damaged chair found
+during a room inspection -- because if the app does not let the user record
+the observation there and then, the observation is very often never
+recorded at all.
+
+\emph{Offline-first} is the name given to a family of design and
+engineering practices that respond to this reality by inverting the default
+assumption: the local device, not the remote server, is treated as the
+primary source of truth for user-generated data, and the network is treated
+as an optional, asynchronous channel used to propagate that data to a
+backend and to other devices. An offline-first application is, by
+definition, fully usable with no network connection; when connectivity is
+available, a synchronization process reconciles local and remote state in
+the background, ideally without the user having to do anything beyond being
+informed of the outcome.
+
+Building an offline-first application well is a genuinely different
+engineering problem from building a "normal" client-server application with
+some caching bolted on. It requires an explicit local persistence model,
+an explicit representation of "this record has not yet reached the
+server," an explicit strategy for deciding \emph{when} to attempt
+synchronization, and an explicit -- even if intentionally simple --
+strategy for what happens when the same record has been modified in two
+places before either side has seen the other's change. Consumer
+applications like Google Docs, Notion, or messaging apps solve versions of
+this problem with considerable engineering investment (operational
+transformation, CRDTs, vector clocks). The central question this thesis
+asks is more modest and more practical: \emph{what is the smallest,
+most maintainable offline-first architecture that is sufficient for a
+CRUD-style field-reporting application}, and what engineering trade-offs
+does that architecture force the developer to make explicit?
+
+\section{Offline-First Applications}
+\label{sec:offline-first-background}
+
+The term "offline first" was popularized in mobile and web development
+around 2013--2014 as a reaction to the "mobile first, then make it work
+offline" pattern, which tends to produce applications where offline support
+is a thin, unreliable layer retrofitted onto a fundamentally online
+architecture~\cite{offlinefirst2013}. The offline-first position instead
+argues that offline behaviour should be a first-class design constraint
+from the start of a project, because retrofitting it later requires
+touching almost every part of the data layer.
+
+At the core of offline-first engineering is a shift in where reads and
+writes are directed. \Cref{fig:online-vs-offline} contrasts the two
+architectures at a high level. In a conventional "online-only" design
+(\cref{fig:online-vs-offline}, left), the UI issues a request directly to
+the backend and the operation's success or failure is determined
+synchronously by the network round trip. In an offline-first design
+(\cref{fig:online-vs-offline}, right), the UI only ever talks to the local
+data store; a separate synchronization component is responsible for
+propagating local changes to the backend when a network path exists, and
+for pulling remote changes back down. The user-visible effect of a create,
+update, or delete operation is therefore always fast and always available,
+because it depends only on local disk I/O, never on the network.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      node distance=1.1cm and 1.6cm,
+      box/.style={draw, rounded corners, minimum width=2.6cm, minimum height=1cm, align=center, font=\small},
+      arrow/.style={-Latex, thick}
+    ]
+    % Online-only
+    \node[box, fill=blue!8] (ui1) {UI};
+    \node[box, fill=orange!12, below=of ui1] (backend1) {Backend API};
+    \node[box, fill=orange!6, below=of backend1] (db1) {Remote DB};
+    \draw[arrow] (ui1) -- node[right, font=\scriptsize]{sync. request} (backend1);
+    \draw[arrow] (backend1) -- (db1);
+    \node[font=\small\bfseries, above=0.3cm of ui1] {Online-only};
+
+    % Offline-first
+    \node[box, fill=blue!8, right=4.4cm of ui1] (ui2) {UI};
+    \node[box, fill=green!10, below=of ui2] (local2) {Local DB\\ (SQLite / Room)};
+    \node[box, fill=violet!10, below=1.6cm of local2] (sync2) {Sync Manager};
+    \node[box, fill=orange!12, right=2.2cm of sync2] (backend2) {Backend\\ (Firestore)};
+    \draw[arrow] (ui2) -- node[right, font=\scriptsize]{read/write} (local2);
+    \draw[arrow] (local2) -- node[right, font=\scriptsize]{queued rows} (sync2);
+    \draw[arrow, <->] (sync2) -- node[above, font=\scriptsize]{async. sync} (backend2);
+    \node[font=\small\bfseries, above=0.3cm of ui2] {Offline-first};
+  \end{tikzpicture}
+  \caption{Data flow in an online-only architecture versus an offline-first
+  architecture. In the offline-first case the UI never blocks on the
+  network: every read and write is served by the local database, and
+  synchronization runs as an independent, asynchronous process.}
+  \label{fig:online-vs-offline}
+\end{figure}
+
+This shift has consequences that ripple through the whole stack:
+
+\begin{itemize}
+  \item \textbf{Local persistence becomes a primary concern, not a cache.}
+  The local database must be able to represent every state a record can be
+  in, including states that have no meaning on the server (e.g. "created
+  locally, not yet uploaded").
+  \item \textbf{Identity must be decided before the server is involved.}
+  If a report is created offline, it needs an identifier the moment it is
+  created, before any server-assigned identifier exists. This typically
+  means client-generated identifiers (UUIDs) coexisting with
+  server-assigned identifiers.
+  \item \textbf{Synchronization is a background process, not a request
+  handler.} It must be triggered by connectivity changes and/or periodic
+  timers, must be resumable after being interrupted, and must be
+  idempotent -- running it twice must not create duplicate data.
+  \item \textbf{Conflicts become possible, and must be resolved by policy,
+  not by accident.} Two devices -- or a device and a server-side edit --
+  can modify the same record while disconnected from each other. The
+  application must define, even if only in the simplest possible way, what
+  happens when those two versions are reconciled.
+  \item \textbf{The user needs visibility into synchronization state.}
+  Because writes are decoupled from network availability, the UI must
+  communicate whether a given piece of data is safely stored on the server
+  or still only local, or the offline-first property becomes a source of
+  anxiety rather than resilience.
+\end{itemize}
+
+These five concerns map directly onto the "Research/engineering questions"
+that motivate this thesis (\cref{sec:objectives}), and onto the chapters
+that follow: \cref{ch:requirements} turns them into concrete requirements,
+\cref{ch:design} turns the requirements into an architecture, and
+\cref{ch:implementation} shows how that architecture is realised in code.
+
+\section{Field Data Collection as a Case Study}
+\label{sec:case-study}
+
+Field data collection is a natural and well-studied application area for
+offline-first design~\cite{brunette2013odk,hartung2010open}. It shares the
+same shape across many domains -- agriculture, epidemiology, environmental
+monitoring, humanitarian logistics, facility maintenance -- namely, a field
+worker observes something, records structured data about it (often with a
+photo and a location), and that data needs to eventually reach a central
+system where it can be aggregated, triaged, and acted upon. The
+observation happens where it happens; the network may or may not be
+available at that exact place and time.
+
+This thesis instantiates the field data collection problem with a scenario
+that is small enough to implement and evaluate within the scope of a
+master's thesis, yet representative of the harder domains listed above: a
+mobile application, referred to throughout this document as
+\textbf{CampusFix}, that lets students, faculty, and staff of a university
+campus report facility problems as they encounter them. Representative
+report categories include:
+
+\begin{itemize}
+  \item a broken or missing projector in a lecture hall;
+  \item a damaged chair or desk;
+  \item a Wi-Fi outage or coverage problem in a specific building/room;
+  \item an air-conditioning or heating malfunction;
+  \item missing or malfunctioning laboratory equipment.
+\end{itemize}
+
+A user of CampusFix is frequently \emph{exactly} in the situation
+offline-first design targets: standing in a basement lab with no signal,
+noticing a broken piece of equipment, and wanting to log it before moving
+on and forgetting the details. If the application requires a live
+connection to save that report, the report is lost, or the user is forced
+to remember to re-open the app later -- which, in practice, means the
+report is usually never filed. CampusFix must therefore let the user
+complete the entire "create a report" flow with zero network availability,
+and must reliably deliver that report to the facilities-management backend
+once the device regains connectivity, without requiring the user to
+remember to do anything.
+
+\section{Problem Statement}
+\label{sec:problem-statement}
+
+Given the scenario above, this thesis addresses the following problem:
+\emph{design, implement, and evaluate a mobile application that lets a user
+create, view, and manage field reports with full functionality while
+offline, that synchronizes those reports with a backend transparently and
+reliably once connectivity returns, that communicates synchronization state
+to the user at all times, and that resolves the simple conflicts that can
+arise when a report is modified both locally and on the server}, using a
+technology stack -- Kotlin Multiplatform for the client, SQLite/Room for
+local storage, and Firebase (Firestore and Authentication) for the backend
+-- that is realistic for a small engineering team to adopt and maintain.
+
+\section{Objectives and Contributions}
+\label{sec:objectives}
+
+The thesis pursues the following concrete objectives, mirroring the
+engineering questions posed in the project brief:
+
+\begin{enumerate}[label=\textbf{O\arabic*.}]
+  \item \textbf{Usability without connectivity.} Determine what UI/UX and
+  architectural patterns keep a mobile app fully usable when internet
+  connectivity is absent, and implement them for the report creation,
+  listing, and detail flows.
+  \item \textbf{Local data model.} Determine what data must be stored
+  locally (and in what form) so that the application never depends on a
+  network round trip for a core operation, and design a local schema that
+  supports this.
+  \item \textbf{Synchronization triggers.} Determine when and how
+  synchronization should be triggered -- on connectivity change, on app
+  start, periodically, or manually -- and implement a connectivity-aware
+  synchronization module.
+  \item \textbf{Sync-state visibility.} Determine how to communicate
+  upload state to the user (pending / synced / failed) so that offline
+  operation is legible rather than opaque.
+  \item \textbf{Conflict resolution.} Determine what conflict-resolution
+  strategy is acceptable for this class of application, and implement the
+  simplest strategy that meets that bar.
+\end{enumerate}
+
+Correspondingly, the thesis contributes:
+
+\begin{enumerate}[label=\textbf{C\arabic*.}]
+  \item A requirements analysis (\cref{ch:requirements}) that separates
+  functional requirements from the offline-specific non-functional
+  requirements that are often left implicit in mobile app specifications.
+  \item A layered system architecture and synchronization algorithm
+  (\cref{ch:design}) for a Kotlin Multiplatform, Room-backed,
+  Firestore-synchronized field-reporting application.
+  \item A working implementation (\cref{ch:implementation}) of that
+  architecture, shared across Android and iOS from a single Kotlin
+  codebase, described down to the level of the actual data access objects,
+  synchronization loop, and connectivity observers used.
+  \item An evaluation (\cref{ch:evaluation}) of the system's offline
+  behaviour, synchronization performance, conflict handling, and usability,
+  together with an honest discussion of the current implementation's
+  limitations, in particular that synchronization today is a one-directional
+  push rather than a full bidirectional merge.
+\end{enumerate}
+
+\section{Thesis Structure}
+\label{sec:structure}
+
+The remainder of this thesis is organized as follows.
+\Cref{ch:requirements} analyzes the functional and non-functional
+requirements of CampusFix, with particular attention to the requirements
+that are specific to offline operation. \Cref{ch:design} presents the
+system architecture: the mobile application's internal layering, the local
+database schema, the backend structure, and the design of the
+synchronization strategy, including the conflict-resolution policy.
+\Cref{ch:implementation} describes the implementation of that design using
+Kotlin Multiplatform, Compose Multiplatform, Room, and Firebase, walking
+through the local database, the connectivity monitor, the synchronization
+module, and the user-facing screens. \Cref{ch:evaluation} evaluates the
+resulting system against six scenarios covering offline creation, delayed
+and failed synchronization, large sync queues, conflicting edits, and
+end-user usability. Finally, \cref{ch:conclusions} summarizes the findings,
+discusses the limitations of the current implementation, and outlines
+directions for future work.

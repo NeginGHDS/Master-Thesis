@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- clipboard body -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M9,2h6a1,1 0,0,1 1,1v1H8V3a1,1 0,0,1 1,-1z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M5,4h14a1,1 0,0,1 1,1v15a1,1 0,0,1 -1,1H5a1,1 0,0,1 -1,-1V5a1,1 0,0,1 1,-1z" />
+
+    <!-- sad face circle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M12,9m-3,0a3,3 0,1,0 6,0a3,3 0,1,0 -6,0" />
+
+    <!-- eyes -->
+    <path
+        android:fillColor="?android:attr/textColorSecondary"
+        android:pathData="M11,8.4a0.4,0.4 0,1,0 0.8,0a0.4,0.4 0,1,0 -0.8,0" />
+    <path
+        android:fillColor="?android:attr/textColorSecondary"
+        android:pathData="M12.8,8.4a0.4,0.4 0,1,0 0.8,0a0.4,0.4 0,1,0 -0.8,0" />
+
+    <!-- frown mouth -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.0"
+        android:strokeLineCap="round"
+        android:pathData="M10.5,10.2 Q12,9.2 13.5,10.2" />
+
+    <!-- dashed lines below (empty content) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M7,15h10" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="?android:attr/textColorSecondary"
+        android:strokeWidth="1.1"
+        android:strokeLineCap="round"
+        android:pathData="M7,17.5h6" />
+
+</vector>

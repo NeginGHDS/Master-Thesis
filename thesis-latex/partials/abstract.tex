@@ -1,0 +1,54 @@
+% Body only: the heading is supplied by toptesi's \sommario in thesis.tex.
+
+Mobile applications used in the field -- on construction sites, in
+agriculture, during humanitarian response, or, as in the scenario studied
+in this thesis, for facility maintenance reporting on a university campus
+-- routinely operate in environments where network connectivity is
+intermittent, slow, or entirely absent. Applications that assume an
+always-on connection degrade badly in these conditions: user input is
+lost, screens hang waiting for a server response, and users lose trust in
+the tool. \emph{Offline-first} design addresses this by treating the local
+device as the primary source of truth and the network as an optional,
+asynchronous channel for synchronization.
+
+This thesis presents the design, implementation, and evaluation of
+\emph{CampusFix}, an offline-first mobile application for reporting
+maintenance problems (broken projectors, damaged furniture, Wi-Fi outages,
+HVAC issues, missing lab equipment) on a university campus. The application
+is built with Kotlin Multiplatform and Compose Multiplatform, sharing a
+single codebase across Android and iOS, and persists data locally in an
+embedded SQLite database accessed through the Room persistence library. A
+dedicated synchronization module observes device connectivity, queues
+locally-created reports, and pushes them to a Firebase Firestore backend
+when a connection becomes available, exposing an explicit per-report sync
+status (\texttt{pending}, \texttt{synced}, \texttt{failed},
+\texttt{deleted\_pending}) so that users always know whether their data has
+left the device.
+
+The thesis makes three contributions. First, it distills the engineering
+questions that recur when building offline-first mobile software -- what to
+store locally, when to trigger synchronization, how to surface sync state
+to the user, and how to resolve conflicting edits -- into a concrete
+requirements analysis grounded in a realistic scenario. Second, it presents
+a layered system architecture (presentation, domain, data, and
+synchronization layers) and a synchronization algorithm based on a
+local-first write path with a background push-and-reconcile strategy,
+together with a last-write-wins conflict resolution policy suitable for
+low-contention, single-owner records such as maintenance reports. Third, it
+evaluates the resulting system against six scenarios -- offline creation,
+delayed synchronization, failed synchronization, large sync queues,
+concurrent edit conflicts, and end-user usability -- discussing both the
+quantitative behaviour of the synchronization module and the qualitative
+experience of first-time users.
+
+The results indicate that a relatively small, well-isolated synchronization
+module is sufficient to make a CRUD-style field-reporting application fully
+usable offline, that connectivity-triggered background sync keeps the
+perceived latency of ``going back online'' low, and that a strict
+last-write-wins policy is an acceptable trade-off for this class of
+application, provided the user interface makes the sync status visible at
+all times. The thesis closes with a discussion of the current
+implementation's limitations -- most notably that synchronization is
+presently a one-directional push from device to server rather than a full
+bidirectional merge -- and outlines the engineering work required to close
+that gap.

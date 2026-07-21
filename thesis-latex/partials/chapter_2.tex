@@ -1,0 +1,372 @@
+\chapter{Requirements Analysis}
+\label{ch:requirements}
+
+This chapter turns the scenario introduced in \cref{ch:introduction} into a
+concrete set of requirements. \Cref{sec:stakeholders} identifies the
+stakeholders and actors of the system. \Cref{sec:usecases} presents the
+core use cases. \Cref{sec:functional-req} lists the functional
+requirements. \Cref{sec:nonfunctional-req} lists the non-functional
+requirements, and \cref{sec:offline-req} isolates, as a separate section,
+the requirements that are specific to offline operation -- since these are
+the requirements that most distinguish CampusFix from a conventional CRUD
+application and that drive most of the design decisions in
+\cref{ch:design}. \Cref{sec:data-req} specifies the data requirements for a
+report record, and \cref{sec:constraints} states the constraints and
+assumptions under which the requirements were elicited.
+
+\section{Stakeholders and Actors}
+\label{sec:stakeholders}
+
+\begin{table}[htbp]
+\centering
+\caption{Stakeholders and actors of the CampusFix system.}
+\label{tab:stakeholders}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Actor} & \textbf{Description} \\
+\midrule
+\textbf{Reporter} & Any authenticated campus user (student, faculty, staff)
+who creates, views, and manages maintenance reports through the mobile
+app. This is the primary actor and the only actor implemented in the
+current system. \\
+\textbf{Facilities staff} & Consumer of the reports on the backend side.
+Out of scope for the mobile application itself, but constrains the shape
+of the data stored in Firestore (\cref{sec:data-req}), since that data must
+eventually be actionable by this actor through a separate
+dashboard/back-office, which is not part of this thesis. \\
+\textbf{Synchronization module} & A non-human actor internal to the
+system: the background component that moves data between the local
+database and Firestore. Modeled as an actor because it initiates actions
+(uploads, retries) independently of direct user input. \\
+\textbf{Connectivity monitor} & A non-human actor that observes the
+device's network state and notifies the synchronization module of
+changes. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Use Case Overview}
+\label{sec:usecases}
+
+\Cref{fig:usecase} summarizes the use cases supported by the Reporter
+actor; \cref{tab:usecase-detail} details the three use cases most relevant
+to the offline-first behaviour of the system.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+      usecase/.style={draw, ellipse, minimum width=3.4cm, minimum height=1cm, align=center, font=\small},
+      actor/.style={font=\small},
+      >=Latex
+    ]
+    % Actor
+    \node[actor] (actor) at (0,0) {
+      \begin{tikzpicture}
+        \draw (0,0.5) circle (0.2);
+        \draw (0,0.3) -- (0,-0.4);
+        \draw (-0.3,-0.1) -- (0.3,-0.1);
+        \draw (0,-0.4) -- (-0.25,-0.9);
+        \draw (0,-0.4) -- (0.25,-0.9);
+      \end{tikzpicture}\\ Reporter
+    };
+
+    \node[usecase] (login) at (4,3.2) {Log in / Sign up};
+    \node[usecase] (create) at (4,2.0) {Create report};
+    \node[usecase] (view) at (4,0.8) {View reports\\(submitted \& pending)};
+    \node[usecase] (retry) at (4,-0.4) {Retry failed sync};
+    \node[usecase] (status) at (4,-1.6) {Check sync status};
+    \node[usecase] (offline) at (8.4,0.8) {Work offline};
+
+    \draw (actor) -- (login);
+    \draw (actor) -- (create);
+    \draw (actor) -- (view);
+    \draw (actor) -- (retry);
+    \draw (actor) -- (status);
+    \draw[dashed,->] (create) -- node[above,font=\scriptsize]{\guillemotleft include\guillemotright} (offline);
+    \draw[dashed,->] (view) -- node[below,font=\scriptsize]{\guillemotleft include\guillemotright} (offline);
+  \end{tikzpicture}
+  \caption{Use case diagram for the Reporter actor. "Work offline" is
+  included by every core use case: none of them require connectivity to
+  complete.}
+  \label{fig:usecase}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{Detail of the three use cases most specific to offline-first
+behaviour.}
+\label{tab:usecase-detail}
+\small
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+\toprule
+\textbf{Create report} & \textbf{Description} \\
+\midrule
+Actor & Reporter \\
+Precondition & User is logged in (a session may be cached locally; see
+\cref{sec:offline-req}). \\
+Main flow & User opens "New report," fills in title, category,
+description, optionally attaches a photo and a location, and submits. \\
+Postcondition & A row exists in the local database with
+\texttt{sync\_status = pending}. The report is immediately visible in the
+report list, tagged as pending. \\
+Offline behaviour & Identical to the online flow; no step in the main flow
+requires network access. \\
+\midrule
+\textbf{View submitted and pending reports} & \textbf{Description} \\
+\midrule
+Actor & Reporter \\
+Main flow & User opens the report list; the app displays all reports
+belonging to the user, each annotated with its current sync status. \\
+Offline behaviour & The list is read entirely from the local database; it
+is always available and always reflects the true local state, including
+reports not yet on the server. \\
+\midrule
+\textbf{Retry failed synchronization} & \textbf{Description} \\
+\midrule
+Actor & Reporter \\
+Precondition & At least one report has \texttt{sync\_status = failed}. \\
+Main flow & User triggers a manual sync (e.g. pull-to-refresh or a "retry"
+action); the app re-attempts upload of all pending/failed reports. \\
+Postcondition & Each report's status is updated to \texttt{synced} or
+remains \texttt{failed}, depending on the outcome. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Functional Requirements}
+\label{sec:functional-req}
+
+\Cref{tab:functional-req} lists the functional requirements (FR), grouped
+by feature area and prioritized using the MoSCoW scale (Must, Should,
+Could, Won't -- for this iteration).
+
+\begin{longtable}{@{}p{1.4cm}p{8.6cm}p{1.6cm}@{}}
+\caption{Functional requirements.}
+\label{tab:functional-req}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Priority} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Priority} \\
+\midrule
+\endhead
+FR-1 & The system shall let a user create an account and log in with an
+email and password. & Must \\
+FR-2 & The system shall let a logged-in user create a report consisting of
+a title, a category, a free-text description, an optional photo, a
+location (building/room), and an automatically-assigned creation
+timestamp. & Must \\
+FR-3 & The system shall persist every report locally as soon as it is
+created, independent of network state. & Must \\
+FR-4 & The system shall let a user view the list of their own reports,
+both those already synchronized and those still pending. & Must \\
+FR-5 & The system shall let a user open a single report to see its full
+detail, including its current synchronization status. & Must \\
+FR-6 & The system shall let a user edit a previously created report (own
+reports only). & Should \\
+FR-7 & The system shall let a user delete a previously created report. &
+Should \\
+FR-8 & The system shall detect when network connectivity becomes
+available and automatically attempt to synchronize pending reports. &
+Must \\
+FR-9 & The system shall let a user manually trigger synchronization. &
+Must \\
+FR-10 & The system shall display, for every report, one of the following
+synchronization statuses: \texttt{pending}, \texttt{synced},
+\texttt{failed}, \texttt{deleted\_pending}. & Must \\
+FR-11 & The system shall retry synchronization of \texttt{failed} reports
+without requiring the user to re-enter data. & Must \\
+FR-12 & The system shall apply a defined conflict-resolution policy
+(last-write-wins, \cref{sec:conflict-design}) when a report has been
+modified both locally and on the server. & Should \\
+FR-13 & The system shall upload photos attached to a report to the
+backend's file storage and associate the resulting URL with the report
+once online. & Could \\
+FR-14 & The system shall support attaching a location either via device
+GPS or via manual building/room selection. & Could \\
+\bottomrule
+\end{longtable}
+
+\section{Non-Functional Requirements}
+\label{sec:nonfunctional-req}
+
+Non-functional requirements are grouped following the quality
+characteristics of ISO/IEC 25010~\cite{iso25010}: functional suitability
+is covered by \cref{sec:functional-req}, so this section focuses on
+performance efficiency, reliability, usability, and portability, which are
+the characteristics most affected by the offline-first constraint.
+
+\begin{longtable}{@{}p{1.4cm}p{5.4cm}p{5.0cm}@{}}
+\caption{Non-functional requirements.}
+\label{tab:nonfunctional-req}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Rationale / metric} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Rationale / metric} \\
+\midrule
+\endhead
+NFR-1 & Creating a report locally shall complete in under 200\,ms,
+perceived as instantaneous by the user. & Must not depend on network
+round-trip time; measured as the time from tapping "Save" to the report
+appearing in the list. \\
+NFR-2 & The application shall remain fully navigable and operable with the
+device in airplane mode. & Verified by the "offline creation" scenario in
+\cref{ch:evaluation}. \\
+NFR-3 & Synchronization of a single report shall not block the UI thread.
+& Implemented via coroutines running off the main dispatcher
+(\cref{ch:implementation}). \\
+NFR-4 & The application shall not lose a locally-created report even if
+the app is killed before synchronization completes. & Verified by
+persisting to disk (Room/SQLite) on creation, not to in-memory state. \\
+NFR-5 & The synchronization status of a report shall be visible within
+one interaction of viewing the report (list or detail). & Usability
+requirement, evaluated in \cref{sec:usability-eval}. \\
+NFR-6 & The application shall share a single codebase for the Android and
+iOS clients for all business logic, UI, and persistence code, with
+platform-specific code limited to the thin platform integration layer. &
+Maintainability; measured qualitatively in \cref{ch:implementation} by the
+proportion of code in \texttt{commonMain}. \\
+NFR-7 & The synchronization protocol shall be idempotent: re-running
+synchronization after a partial failure shall not create duplicate remote
+records. & Achieved via deterministic document IDs
+(\cref{sec:sync-design}). \\
+NFR-8 & Authentication credentials/session shall be cached locally so
+that a returning user does not need connectivity to reach the
+authenticated part of the app. & See \cref{sec:offline-req}, OFR-2. \\
+\bottomrule
+\end{longtable}
+
+\section{Offline-Specific Requirements}
+\label{sec:offline-req}
+
+The requirements in this section are the ones that make CampusFix an
+offline-first application rather than an online application with a cache.
+They are listed separately, following the recommendation in
+\cref{sec:offline-first-background}, precisely because they are easy to
+omit from a conventional requirements document and expensive to retrofit.
+
+\begin{longtable}{@{}p{1.6cm}p{9.0cm}@{}}
+\caption{Offline-specific requirements.}
+\label{tab:offline-req}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{Requirement} \\
+\midrule
+\endhead
+OFR-1 & \textbf{Local-first writes.} Every write operation (create,
+update, delete of a report) shall be applied to the local database first
+and shall succeed regardless of network state; the network is never on
+the critical path of a write. \\
+OFR-2 & \textbf{Offline session continuity.} A user who has previously
+logged in while online shall remain able to use the app (i.e. reach the
+authenticated screens) while offline, using a cached session, without
+being forced to re-authenticate against the network. \\
+OFR-3 & \textbf{Deterministic local identity.} Every report shall receive
+a locally-generated, globally unique identifier (\texttt{local\_id}) at
+creation time, independent of any server-assigned identifier, so that the
+report can be referenced, displayed, and edited before it has ever
+reached the server. \\
+OFR-4 & \textbf{Explicit sync state.} Every report shall carry an explicit
+\texttt{sync\_status} field, persisted locally, distinguishing at least
+\texttt{pending} (not yet uploaded), \texttt{synced} (confirmed on
+server), \texttt{failed} (upload attempted and rejected/errored), and
+\texttt{deleted\_pending} (deleted locally, deletion not yet propagated).
+\\
+OFR-5 & \textbf{Connectivity-triggered synchronization.} The
+synchronization module shall subscribe to connectivity change events and
+shall automatically attempt to synchronize all pending work items when
+the device transitions from offline to online. \\
+OFR-6 & \textbf{Bounded, resumable sync.} Synchronization of $N$ pending
+reports shall be resumable: if interrupted after $k<N$ reports have been
+uploaded, a subsequent sync attempt shall upload only the remaining
+$N-k$, not re-upload the first $k$. \\
+OFR-7 & \textbf{Conflict resolution policy.} When the synchronization
+module detects that a report has diverging local and remote versions, it
+shall apply a defined, documented policy (last-write-wins on
+\texttt{updated\_at}, \cref{sec:conflict-design}) rather than an undefined
+or silently inconsistent outcome. \\
+OFR-8 & \textbf{No data loss on failure.} A failed synchronization attempt
+shall never delete or corrupt the local copy of a report; the report shall
+remain \texttt{pending}/\texttt{failed} and retriable. \\
+\bottomrule
+\end{longtable}
+
+\section{Data Requirements}
+\label{sec:data-req}
+
+\Cref{tab:report-fields} specifies the fields required on a report record,
+consolidating the "Core features" and "Synchronization logic" sections of
+the project brief. This table is the basis for the local schema and remote
+document shape designed in \cref{sec:local-storage-design}.
+
+\begin{longtable}{@{}p{2.6cm}p{2.4cm}p{6.6cm}@{}}
+\caption{Required fields of a report record.}
+\label{tab:report-fields}\\
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Notes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Notes} \\
+\midrule
+\endhead
+\texttt{id} & integer & Local auto-increment primary key; never leaves the
+device. \\
+\texttt{local\_id} & UUID string & Client-generated identity, stable across
+the report's lifetime; doubles as the remote document ID when no
+server-assigned ID exists yet. \\
+\texttt{remote\_id} & string, nullable & Firestore document ID once
+synchronized; \texttt{null} until first successful upload. \\
+\texttt{title} & string & Required, non-empty. \\
+\texttt{category} & enum/string & One of a fixed set (projector, furniture,
+network, HVAC, lab equipment, other). \\
+\texttt{description} & string & Free text, required. \\
+\texttt{location} & string & Building/room, free text or picker-selected. \\
+\texttt{photo\_path} & string, nullable & Absolute local file path to an
+attached photo. \\
+\texttt{remote\_photo\_url} & string, nullable & Download URL once the
+photo has been uploaded to remote storage. \\
+\texttt{owner} & string & Email of the creating user; used for
+per-user filtering and, informally, as the record's ownership token. \\
+\texttt{created\_at} & epoch millis & Set once, at creation. \\
+\texttt{updated\_at} & epoch millis & Updated on every local or remote
+write; drives the last-write-wins policy. \\
+\texttt{sync\_status} & enum & \texttt{pending} $\mid$ \texttt{synced}
+$\mid$ \texttt{failed} $\mid$ \texttt{deleted\_pending}. \\
+\bottomrule
+\end{longtable}
+
+\section{Constraints and Assumptions}
+\label{sec:constraints}
+
+\begin{itemize}
+  \item \textbf{Technology stack.} The client is constrained to Kotlin
+  Multiplatform targeting Android and iOS from a shared codebase; the
+  backend is constrained to Firebase (Firestore for data, Firebase
+  Authentication for identity), as specified in the project brief. These
+  are treated as hard constraints rather than choices evaluated against
+  alternatives.
+  \item \textbf{Single-owner records.} A report is assumed to have exactly
+  one meaningful "owner" at a time (the creating user); multi-user
+  concurrent editing of the same report by two \emph{different} users is
+  out of scope, though the same-user, two-device case is in scope for
+  conflict handling (\cref{sec:conflict-design}).
+  \item \textbf{Trusted client.} The system assumes an honest client: the
+  \texttt{owner} field is set by the client and used for filtering, not as
+  a security boundary. Backend authorization rules (Firestore security
+  rules) are discussed as a limitation in \cref{ch:conclusions} rather than
+  implemented in full.
+  \item \textbf{Scale.} The system is designed and evaluated for the scale
+  of a single university campus (hundreds to low thousands of reports),
+  not for a nationwide, high-write-throughput deployment.
+  \item \textbf{No offline maps/geocoding.} Location capture relies on
+  device GPS coordinates and/or a static, bundled list of buildings; it
+  does not depend on an online maps or geocoding service, so it does not
+  introduce an additional offline dependency.
+\end{itemize}

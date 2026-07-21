@@ -1,0 +1,4 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Minimal window theme; actual UI theming is done via Compose Material3 in App.kt -->
+    <style name="Theme.OfflineFirst" parent="Theme.AppCompat.DayNight.NoActionBar" />
+</resources>

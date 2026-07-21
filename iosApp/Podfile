@@ -1,0 +1,8 @@
+platform :ios, '17.0'
+
+target 'iosApp' do
+  use_frameworks!
+
+  pod 'FirebaseAuth'
+  pod 'FirebaseFirestore'
+end

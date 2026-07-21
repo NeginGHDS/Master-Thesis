@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">Offline-First</string>
+    <string name="login">Login</string>
+    <string name="signup">Sign Up</string>
+    <string name="or">or</string>
+    <string name="hint_username">Email</string>
+    <string name="hint_password">Password</string>
+    <string name="no_account">Don\'t have an account? Sign Up</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+    <string name="already_have_account">Already have an account? Log in</string>
+    <string name="logout">Logout</string>
+    <string name="add_report">Add Report</string>
+    <string name="report_detail">Report Detail</string>
+    <string name="hint_title">Title</string>
+    <string name="hint_description">Description</string>
+    <string name="hint_category">Category</string>
+    <string name="hint_location">Location</string>
+    <string name="hint_photo">Photo (optional)</string>
+    <string name="submit">Submit</string>
+    <string name="edit_report">Edit Report</string>
+    <string name="save_changes">Save Changes</string>
+    <string name="pick_photo">Pick Photo</string>
+    <string name="web_client_id">485777607804-4vv633q6ajffsh3heg2pglvhs239105e.apps.googleusercontent.com</string>
+    <string name="login_google">Continue with Google</string>
+    <string name="login_twitter">Continue with Twitter</string>
+</resources>

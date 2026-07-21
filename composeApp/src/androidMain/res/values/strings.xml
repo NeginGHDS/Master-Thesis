@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Offline-First</string>
+    <!-- Used only by the Android Credential Manager / Google Sign-In actual implementation -->
+    <string name="web_client_id">485777607804-4vv633q6ajffsh3heg2pglvhs239105e.apps.googleusercontent.com</string>
+</resources>

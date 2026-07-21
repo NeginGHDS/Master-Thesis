@@ -1,0 +1,111 @@
+\chapter{Supplementary Code Listings}
+\label{app:code}
+
+This appendix contains supporting code listings referenced from
+\cref{ch:implementation} but not essential to its main narrative.
+
+\section{Navigation Route Definitions}
+
+\Cref{lst:app-routes} lists the route constants used by the
+\texttt{NavHost} of \cref{lst:navhost}.
+
+\begin{lstlisting}[language=Kotlin, caption={\texttt{ui/navigation/Routes.kt}.}, label={lst:app-routes}]
+object Routes {
+    const val LOGIN = "login"
+    const val SIGNUP = "signup"
+    const val HOME = "home"
+    const val ADD_REPORT = "addReport"
+    const val EDIT_REPORT = "editReport/{reportId}"
+    const val REPORT_DETAIL = "reportDetail/{reportId}"
+
+    const val ARG_REPORT_ID = "reportId"
+
+    fun editReport(reportId: Long) = "editReport/$reportId"
+    fun reportDetail(reportId: Long) = "reportDetail/$reportId"
+}
+\end{lstlisting}
+
+\section{Local Session Store}
+
+\Cref{lst:app-sessionstore} shows \texttt{SessionStore}, the
+\texttt{multiplatform-settings}-backed component behind OFR-2 (offline
+session continuity, \cref{sec:offline-req}) and the session-resolution
+logic of \cref{lst:checksession}. \texttt{Settings} is itself an
+\texttt{expect}/\texttt{actual} abstraction over \texttt{SharedPreferences}
+on Android and \texttt{NSUserDefaults} on iOS, so \texttt{SessionStore}
+itself is common code.
+
+\begin{lstlisting}[language=Kotlin, caption={\texttt{data/local/SessionStore.kt}.}, label={lst:app-sessionstore}]
+expect fun createSettings(): Settings
+
+class SessionStore(private val settings: Settings = createSettings()) {
+
+    var loginTimeMillis: Long
+        get() = settings.getLong(KEY_LOGIN_TIME, 0L)
+        set(value) { settings[KEY_LOGIN_TIME] = value }
+
+    var localAuthEmail: String?
+        get() = settings.getStringOrNull(KEY_LOCAL_AUTH_EMAIL)
+        set(value) {
+            if (value != null) settings[KEY_LOCAL_AUTH_EMAIL] = value
+            else settings.remove(KEY_LOCAL_AUTH_EMAIL)
+        }
+
+    fun clear() {
+        settings.remove(KEY_LOGIN_TIME)
+        settings.remove(KEY_LOCAL_AUTH_EMAIL)
+    }
+
+    companion object {
+        const val SESSION_DURATION_MS = 60 * 60 * 1000L
+        private const val KEY_LOGIN_TIME = "login_time"
+        private const val KEY_LOCAL_AUTH_EMAIL = "local_auth_email"
+    }
+}
+\end{lstlisting}
+
+A one-hour \texttt{SESSION\_DURATION\_MS} bounds how long a user can
+remain in the authenticated part of the app purely on a cached local
+session before being asked to re-authenticate, balancing OFR-2's
+offline-continuity goal against not caching a stale session indefinitely.
+
+\section{Firestore Report Document Mapping}
+
+\Cref{lst:app-remotereport} shows the exact mapping between the local
+\texttt{Report} entity and the document shape uploaded to Firestore
+(\cref{tab:firestore-doc}), used internally by \texttt{SyncManager}
+(\cref{lst:syncmanager}).
+
+\begin{lstlisting}[language=Kotlin, caption={Local-to-remote mapping (\texttt{sync/SyncManager.kt}).}, label={lst:app-remotereport}]
+@Serializable
+private data class RemoteReport(
+    val localId: String,
+    val title: String,
+    val description: String,
+    val category: String,
+    val location: String,
+    val photoPath: String?,
+    val remotePhotoUrl: String?,
+    val owner: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+private fun Report.toRemote() = RemoteReport(
+    localId = localId,
+    title = title,
+    description = description,
+    category = category,
+    location = location,
+    photoPath = photoPath,
+    remotePhotoUrl = remotePhotoUrl,
+    owner = owner,
+    createdAt = createdAt,
+    updatedAt = updatedAt
+)
+\end{lstlisting}
+
+Note that \texttt{id} (the local Room primary key) and \texttt{syncStatus}
+are, by construction, absent from \texttt{RemoteReport} -- the type system
+itself prevents these local-only bookkeeping fields from ever being
+uploaded, rather than relying on a runtime filter.

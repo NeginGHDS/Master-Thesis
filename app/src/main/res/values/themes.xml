@@ -1,0 +1,30 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.OfflineFirst" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.OfflineFirst" parent="Base.Theme.OfflineFirst" />
+
+    <style name="Widget.App.TextBox.Pill" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:elevation">1dp</item>
+    </style>
+
+
+    <style name="Widget.App.Button.Pill" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:elevation">1dp</item>
+    </style>
+
+    <style name="Widget.App.Button.Pill.Outlined" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:elevation">1dp</item>
+    </style>
+
+    <style name="Widget.App.Card.Pill" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardCornerRadius">8dp</item>
+        <item name="cardElevation">1dp</item>
+    </style>
+</resources>

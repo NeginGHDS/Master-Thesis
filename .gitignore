@@ -88,4 +88,5 @@ __MACOSX/
 # Presentations
 *.pptx
 *.ppt
-/.claude
+.claude/
+thesis-latex/

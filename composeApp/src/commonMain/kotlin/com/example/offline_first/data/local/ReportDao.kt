@@ -39,6 +39,14 @@ interface ReportDao {
     @Query("SELECT * FROM reports WHERE syncStatus = 'PENDING'")
     suspend fun getPending(): List<Report>
 
+    /**
+     * Everything still owed to the backend: reports waiting for a network (`PENDING`) and reports
+     * the server refused last time (`FAILED`). Both are retried by `SyncManager.sync` — the status
+     * only records *why* a report is still here, it is not a decision to give up on it.
+     */
+    @Query("SELECT * FROM reports WHERE syncStatus IN ('PENDING', 'FAILED')")
+    suspend fun getUnsynced(): List<Report>
+
     @Query("SELECT * FROM reports WHERE syncStatus = 'DELETED_PENDING'")
     suspend fun getDeletedPending(): List<Report>
 }

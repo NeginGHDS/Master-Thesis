@@ -88,3 +88,4 @@ __MACOSX/
 # Presentations
 *.pptx
 *.ppt
+/.claude

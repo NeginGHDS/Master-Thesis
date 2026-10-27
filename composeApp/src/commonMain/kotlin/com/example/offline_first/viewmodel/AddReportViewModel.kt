@@ -17,12 +17,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * The faults a campus maintenance report can be filed under.
+ *
+ * These are deliberately the things that break in teaching rooms and labs, not city-wide civic
+ * problems: the reporter is a student or member of staff standing in front of a dead projector,
+ * and the list has to let them say so in one tap.
+ */
 val REPORT_CATEGORIES = listOf(
-    "Infrastructure",
-    "Public Safety",
-    "Vandalism",
-    "Sanitation",
-    "Environment",
+    "Projector/AV",
+    "Furniture",
+    "Network/Wi-Fi",
+    "Air conditioning",
+    "Lab equipment",
     "Other"
 )
 

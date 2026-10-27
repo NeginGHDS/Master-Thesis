@@ -7,8 +7,6 @@ import com.example.offline_first.data.model.Report
 import com.example.offline_first.data.model.SyncStatus
 import com.example.offline_first.util.ioDispatcher
 import com.example.offline_first.util.isNetworkOnline
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,33 +65,23 @@ class ReportDetailViewModel(private val container: AppContainer, private val rep
         _events.value = null
     }
 
-    @OptIn(ExperimentalTime::class)
     fun confirmDelete(report: Report) {
         viewModelScope.launch {
             withContext(ioDispatcher) {
                 val current = dao.getById(report.id) ?: return@withContext
-                dao.update(
-                    current.copy(
-                        syncStatus = SyncStatus.DELETED_PENDING,
-                        updatedAt = Clock.System.now().toEpochMilliseconds()
-                    )
-                )
+                // same as MainViewModel.deleteReport: a status change, not a content edit, so
+                // updatedAt keeps the user's last edit time
+                dao.update(current.copy(syncStatus = SyncStatus.DELETED_PENDING))
             }
             // if sync deleted, finish the screen
             _events.value = ReportDetailEvent.Closed
         }
     }
 
-    @OptIn(ExperimentalTime::class)
     fun restoreReport(report: Report) {
         viewModelScope.launch {
             withContext(ioDispatcher) {
-                dao.update(
-                    report.copy(
-                        syncStatus = SyncStatus.PENDING,
-                        updatedAt = Clock.System.now().toEpochMilliseconds()
-                    )
-                )
+                dao.update(report.copy(syncStatus = SyncStatus.PENDING))
             }
         }
     }

@@ -1,0 +1,32 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
+    // A report belongs to the user whose email is in its `owner` field
+    // (written by Report.toMap() in SyncManager).
+    function ownsStored() {
+      return isSignedIn() && resource.data.owner == request.auth.token.email;
+    }
+
+    function ownsIncoming() {
+      return isSignedIn() && request.resource.data.owner == request.auth.token.email;
+    }
+
+    match /reports/{reportId} {
+      allow read:   if ownsStored();
+      allow create: if ownsIncoming();
+      allow update: if ownsStored() && ownsIncoming();
+      allow delete: if ownsStored();
+    }
+
+    // Everything else is denied.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

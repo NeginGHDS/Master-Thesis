@@ -41,7 +41,7 @@
                 android:textColor="?attr/colorPrimary"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
-                tools:text="Infrastructure" />
+                tools:text="Projector/AV" />
 
             <TextView
                 android:id="@+id/textDetailTitle"
@@ -54,7 +54,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/textDetailSyncStatus"
-                tools:text="Pothole on Main Street" />
+                tools:text="Projector shows no signal" />
 
             <View
                 android:id="@+id/divider"
@@ -89,7 +89,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/labelDescription"
-                tools:text="Large pothole causing traffic issues." />
+                tools:text="Lecture hall projector reports no signal." />
 
             <TextView
                 android:id="@+id/labelLocation"
@@ -114,7 +114,7 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/labelLocation"
-                tools:text="📍 Main Street, Block 4" />
+                tools:text="📍 Room 3A, Engineering Building" />
 
             <TextView
                 android:id="@+id/labelAttachments"

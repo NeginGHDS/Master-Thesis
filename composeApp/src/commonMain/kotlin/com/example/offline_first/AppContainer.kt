@@ -3,6 +3,7 @@ package com.example.offline_first
 import com.example.offline_first.data.local.AppDatabase
 import com.example.offline_first.data.local.SessionStore
 import com.example.offline_first.sync.ConnectivityObserver
+import com.example.offline_first.sync.FirestoreReportStore
 import com.example.offline_first.sync.StorageManager
 import com.example.offline_first.sync.SyncManager
 import com.example.offline_first.sync.createConnectivityObserver
@@ -24,7 +25,7 @@ class AppContainer(database: AppDatabase) {
 
     val auth: FirebaseAuth = Firebase.auth
     val storageManager = StorageManager()
-    val syncManager = SyncManager(reportDao, storageManager)
+    val syncManager = SyncManager(reportDao, storageManager, FirestoreReportStore())
     val connectivityObserver: ConnectivityObserver = createConnectivityObserver()
     val sessionStore = SessionStore()
 }

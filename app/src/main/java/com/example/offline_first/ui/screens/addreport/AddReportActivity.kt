@@ -38,11 +38,11 @@ class AddReportActivity : AppCompatActivity() {
     private var pendingCameraFile: File? = null
 
     private val categories = listOf(
-        "Infrastructure",
-        "Public Safety",
-        "Vandalism",
-        "Sanitation",
-        "Environment",
+        "Projector/AV",
+        "Furniture",
+        "Network/Wi-Fi",
+        "Air conditioning",
+        "Lab equipment",
         "Other"
     )
 

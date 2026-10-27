@@ -111,12 +111,10 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
                 // always go through DELETED_PENDING — even if remoteId is null, the upload may
                 // have partially reached Firestore (localId was used as the doc ID), so sync will
                 // attempt delete using localId as fallback
-                dao.update(
-                    current.copy(
-                        syncStatus = SyncStatus.DELETED_PENDING,
-                        updatedAt = Clock.System.now().toEpochMilliseconds()
-                    )
-                )
+                //
+                // updatedAt is left as it was: deleting is not editing the content, and
+                // last-write-wins compares edit times
+                dao.update(current.copy(syncStatus = SyncStatus.DELETED_PENDING))
                 if (com.example.offline_first.util.isNetworkOnline()) {
                     syncManager.syncDeletes()
                 }
@@ -127,12 +125,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     fun restoreReport(report: Report) {
         viewModelScope.launch {
             withContext(ioDispatcher) {
-                dao.update(
-                    report.copy(
-                        syncStatus = SyncStatus.PENDING,
-                        updatedAt = Clock.System.now().toEpochMilliseconds()
-                    )
-                )
+                // cancelling a pending deletion puts the report back exactly as it was, edit time
+                // included — nothing about its content changed
+                dao.update(report.copy(syncStatus = SyncStatus.PENDING))
             }
         }
     }
@@ -140,7 +135,9 @@ class MainViewModel(private val container: AppContainer) : ViewModel() {
     /** Returns "Syncing…" style outcome of a manual sync request — mirrors `R.id.action_sync`. */
     suspend fun syncNow(): SyncOutcome {
         val hasPending = withContext(ioDispatcher) {
-            dao.getPending().isNotEmpty() || dao.getDeletedPending().isNotEmpty()
+            // FAILED counts as outstanding work too, otherwise a manual sync would answer
+            // "up to date" while a report the server rejected is still sitting there
+            dao.getUnsynced().isNotEmpty() || dao.getDeletedPending().isNotEmpty()
         }
         return when {
             !hasPending -> SyncOutcome.UpToDate

@@ -5,12 +5,12 @@ import dev.gitlive.firebase.Firebase
 import dev.gitlive.firebase.storage.Data
 import dev.gitlive.firebase.storage.storage
 
-class StorageManager {
+class StorageManager : PhotoUploader {
 
-    private val storage = Firebase.storage
+    private val storage by lazy { Firebase.storage }
 
     /** Uploads the local file at [localPath] and returns its public download URL, or null on failure. */
-    suspend fun uploadPhoto(localId: String, localPath: String): String? {
+    override suspend fun uploadPhoto(localId: String, localPath: String): String? {
         val bytes = readFileBytes(localPath) ?: return null
         return try {
             val ref = storage.reference.child("photos/$localId.jpg")
@@ -23,7 +23,7 @@ class StorageManager {
     }
 
     /** Deletes the photo uploaded for [localId], if any. Safe to call when nothing was uploaded. */
-    suspend fun deletePhoto(localId: String) {
+    override suspend fun deletePhoto(localId: String) {
         try {
             storage.reference.child("photos/$localId.jpg").delete()
         } catch (e: Exception) {

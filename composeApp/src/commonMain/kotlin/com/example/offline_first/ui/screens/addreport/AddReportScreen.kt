@@ -12,14 +12,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Chair
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Construction
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Eco
-import androidx.compose.material.icons.filled.LocalPolice
-import androidx.compose.material.icons.filled.Report
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -53,13 +53,14 @@ import com.example.offline_first.viewmodel.AddReportEvent
 import com.example.offline_first.viewmodel.AddReportViewModel
 import com.example.offline_first.viewmodel.REPORT_CATEGORIES
 
+// one icon per entry in REPORT_CATEGORIES; keep the two lists in step
 private val categoryIcons: Map<String, ImageVector> = mapOf(
-    "Infrastructure" to Icons.Default.Construction,
-    "Public Safety"  to Icons.Default.LocalPolice,
-    "Vandalism"      to Icons.Default.Report,
-    "Sanitation"     to Icons.Default.Delete,
-    "Environment"    to Icons.Default.Eco,
-    "Other"          to Icons.Default.Category
+    "Projector/AV"     to Icons.Default.Videocam,
+    "Furniture"        to Icons.Default.Chair,
+    "Network/Wi-Fi"    to Icons.Default.Wifi,
+    "Air conditioning" to Icons.Default.AcUnit,
+    "Lab equipment"    to Icons.Default.Science,
+    "Other"            to Icons.Default.Category
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

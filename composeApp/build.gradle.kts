@@ -79,6 +79,9 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+            // runTest + virtual time: lets the sync benchmarks charge a modelled per-round-trip
+            // latency without the suite actually sleeping for it
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
